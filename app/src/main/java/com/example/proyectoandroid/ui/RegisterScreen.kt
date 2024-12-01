@@ -1,13 +1,9 @@
 package com.example.proyectoandroid.ui
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,31 +31,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
+import com.example.proyectoandroid.api.saveUserToFirestore
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.launch
 
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: () -> Unit
 ) {
     val auth = FirebaseAuth.getInstance()
-    FirebaseStorage.getInstance()
-    FirebaseFirestore.getInstance()
+    val firestore = FirebaseFirestore.getInstance()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
     var selectedCatImage by remember { mutableStateOf<String?>(null) }
     var showCatImages by remember { mutableStateOf(false) }
-    rememberCoroutineScope()
-
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-        onResult = { uri -> imageUri = uri }
-    )
+    val coroutineScope = rememberCoroutineScope()
 
     if (showCatImages) {
         SelectCatImageScreen(
@@ -83,52 +73,35 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Mostrar la imagen seleccionada o un placeholder
+            // Mostrar imagen de gato seleccionada o placeholder
             Box(
                 modifier = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
                     .align(Alignment.CenterHorizontally)
             ) {
-                when {
-                    selectedCatImage != null -> {
-                        Image(
-                            painter = rememberAsyncImagePainter(selectedCatImage),
-                            contentDescription = "Selected Cat Image",
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    imageUri != null -> {
-                        Image(
-                            painter = rememberAsyncImagePainter(imageUri),
-                            contentDescription = "Selected Image",
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    else -> {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Placeholder Image",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp)
-                        )
-                    }
+                if (selectedCatImage != null) {
+                    Image(
+                        painter = rememberAsyncImagePainter(selectedCatImage),
+                        contentDescription = "Selected Cat Image",
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Placeholder Image",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 16.dp)
-            ) {
-                Button(onClick = { imagePickerLauncher.launch("image/*") }) {
-                    Text("Select From Device")
-                }
-                Button(onClick = { showCatImages = true }) {
-                    Text("Select Cat Image")
-                }
+            // Botón para seleccionar imágenes de gatos
+            Button(onClick = { showCatImages = true }) {
+                Text("Select Cat Image")
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -175,6 +148,8 @@ fun RegisterScreen(
                         errorMessage = "All fields are required."
                     } else if (password != confirmPassword) {
                         errorMessage = "Passwords do not match."
+                    } else if (selectedCatImage == null) {
+                        errorMessage = "Please select a cat image."
                     } else {
                         isLoading = true
                         errorMessage = null
@@ -182,14 +157,14 @@ fun RegisterScreen(
                             .addOnCompleteListener { task ->
                                 if (task.isSuccessful) {
                                     val uid = task.result?.user?.uid
-                                    val selectedImageUrl = selectedCatImage ?: imageUri?.toString()
-
-                                    if (uid != null && selectedImageUrl != null) {
-                                        saveUserToFirestore(uid, email, selectedImageUrl)
-                                        isLoading = false
-                                        onRegisterSuccess()
+                                    if (uid != null) {
+                                        coroutineScope.launch {
+                                            saveUserToFirestore(uid, email, selectedCatImage)
+                                            isLoading = false
+                                            onRegisterSuccess()
+                                        }
                                     } else {
-                                        errorMessage = "Please select a valid image."
+                                        errorMessage = "Error registering user."
                                         isLoading = false
                                     }
                                 } else {
@@ -223,24 +198,4 @@ fun RegisterScreen(
             }
         }
     }
-}
-
-fun saveUserToFirestore(uid: String, email: String, profileImageUrl: String?) {
-    val firestore = FirebaseFirestore.getInstance()
-
-    val user = mapOf(
-        "uid" to uid,
-        "email" to email,
-        "profileImageUrl" to (profileImageUrl ?: "")
-    )
-
-    firestore.collection("users")
-        .document(uid)
-        .set(user)
-        .addOnSuccessListener {
-            println("User successfully written!")
-        }
-        .addOnFailureListener { e ->
-            println("Error writing document: ${e.message}")
-        }
 }

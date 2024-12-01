@@ -26,12 +26,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
-import com.example.proyectoandroid.api.updateProfileImage
 import com.example.proyectoandroid.api.updateProfileImageFromUrl
 import com.example.proyectoandroid.ui.SelectCatImageScreen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -39,37 +37,11 @@ import kotlinx.coroutines.tasks.await
 fun UserProfileScreen(onLogout: () -> Unit) {
     var userEmail by remember { mutableStateOf("") }
     var profileImageUrl by remember { mutableStateOf("") }
-    var showOptionsDialog by remember { mutableStateOf(false) }
     var showCatImages by remember { mutableStateOf(false) }
     val firebaseAuth = FirebaseAuth.getInstance()
     val firestore = FirebaseFirestore.getInstance()
-    val storage = FirebaseStorage.getInstance()
     val uid = firebaseAuth.currentUser?.uid
     val coroutineScope = rememberCoroutineScope()
-
-    // Image picker launcher
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-        onResult = { uri ->
-            if (uri != null) {
-                coroutineScope.launch {
-                    updateProfileImage(
-                        uri = uri,
-                        uid = FirebaseAuth.getInstance().currentUser?.uid,
-                        firestore = FirebaseFirestore.getInstance(),
-                        storage = FirebaseStorage.getInstance(),
-                        onImageUpdated = { newImageUrl ->
-                            profileImageUrl = newImageUrl
-                            println("Profile image updated successfully: $newImageUrl")
-                        },
-                        onError = { errorMessage ->
-                            println("Error: $errorMessage")
-                        }
-                    )
-                }
-            }
-        }
-    )
 
     // Fetch user data
     LaunchedEffect(uid) {
@@ -117,14 +89,14 @@ fun UserProfileScreen(onLogout: () -> Unit) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Botón para actualizar foto de perfil
-            Button(onClick = { showOptionsDialog = true }) {
+            // Botón para actualizar foto de perfil con imágenes de gatos
+            Button(onClick = { showCatImages = true }) {
                 Text("Update Profile Picture")
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Logout
+            // Botón para cerrar sesión
             Button(
                 onClick = {
                     firebaseAuth.signOut()
@@ -137,30 +109,5 @@ fun UserProfileScreen(onLogout: () -> Unit) {
                 Text("Logout")
             }
         }
-    }
-
-    // Diálogo para opciones de imagen
-    if (showOptionsDialog) {
-        AlertDialog(
-            onDismissRequest = { showOptionsDialog = false },
-            title = { Text("Update Profile Picture") },
-            text = { Text("Choose how to update your profile picture:") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showOptionsDialog = false
-                    imagePickerLauncher.launch("image/*")
-                }) {
-                    Text("From Device")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showOptionsDialog = false
-                    showCatImages = true
-                }) {
-                    Text("Cat Images")
-                }
-            }
-        )
     }
 }
