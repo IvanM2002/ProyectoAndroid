@@ -10,18 +10,26 @@ suspend fun updateProfileImage(
     uid: String?,
     firestore: FirebaseFirestore,
     storage: FirebaseStorage,
-    onImageUpdated: (String) -> Unit
+    onImageUpdated: (String) -> Unit,
+    onError: (String) -> Unit
 ) {
-    if (uid == null) return
+    if (uid == null) {
+        onError("User ID is null. Unable to update profile image.")
+        return
+    }
     try {
         val storageRef = storage.reference.child("profile_images/$uid-${System.currentTimeMillis()}.jpg")
-        val uploadTask = storageRef.putFile(uri).await()
+
+        storageRef.putFile(uri).await()
+
         val downloadUrl = storageRef.downloadUrl.await()
 
-        // Update Firestore with the new image URL
-        firestore.collection("users").document(uid).update("profileImageUrl", downloadUrl.toString()).await()
+        firestore.collection("users").document(uid)
+            .update("profileImageUrl", downloadUrl.toString()).await()
+
         onImageUpdated(downloadUrl.toString())
     } catch (e: Exception) {
+        onError("Error updating profile image: ${e.message}")
         println("Error updating profile image: ${e.message}")
     }
 }
