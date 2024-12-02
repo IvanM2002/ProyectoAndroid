@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Permisos necesarios para acceso a Internet y estado de la red -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <application
         android:name=".ProyectoApp"
         android:allowBackup="true"
@@ -14,7 +18,9 @@
         android:theme="@style/Theme.ProyectoAndroid.."
         tools:targetApi="31">
 
-        <activity android:name=".MainActivity"
+        <!-- Actividad principal de la aplicación -->
+        <activity
+            android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
